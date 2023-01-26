@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+
+    <title>Заголовок моей страницы</title>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans+Condensed:300|Sonsie+One" rel="stylesheet" type="text/css">
+    <!-- <link rel="stylesheet" href="./style.css" type="text/css"> -->
+  </head>
+
+  <body>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Andale Mono, monospace;
+        }
+
+        .form {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(163, 163, 163, 0.7);
+            padding: 0 12px;
+            display: flex;
+            height: 60px;
+            align-items: center;
+        }
+
+        .name {
+            height: 40px;
+            background-color: beige;
+            padding: 20px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .input {
+            height: 40px;
+            border-radius: 35px;
+            border: none;
+            margin: 15px;
+            padding: 0 18px;
+            display: flex;
+            width: 100%;
+            outline: none;
+        }
+
+        .send-btn {
+            height: 40px;
+            width: 140px;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
+            background-color: beige;
+            border-radius: 20px;
+            font-size: 16px;
+        }
+
+        .message-box {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            overflow-y: auto;
+            max-height: 680px;
+        }
+
+        .message-box > li {
+            padding: 10px;
+            position: relative;
+            width: 100%
+        }
+
+        .message-box > span {
+            font-weight: 500px;
+        }
+
+        .message-box > li:nth-child(odd) {
+            background-color: #efefef;
+        }
+
+        .admin {
+            background: linear-gradient(20deg, #f92056 21%, #00deff 65%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 550;
+        }
+
+        .change-btn {
+            height: 40px;
+            width: 150px;
+            background-color: beige;
+            border: none;
+            border-radius: 20px;
+            margin-left: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            outline: none;
+            font-size: 16px;
+            padding: 0 5px;
+        }
+
+        .person {
+            font-weight: 600;
+        }
+
+        .clear-btn {
+            height: 40px;
+            width: 150px;
+            background-color: beige;
+            border: none;
+            border-radius: 20px;
+            margin-left: 10px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            outline: none;
+            font-size: 16px;
+            padding: 0 5px;
+        }
+
+        .online {
+            width: 57px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .time {
+            position: absolute;
+            right: 5px;
+            bottom: 5px;
+            font-size: 13px;
+            color: rgba(115, 115, 115, 0.634);
+        }
+
+        @media screen and (max-width: 414px) {
+            .form {
+                height: 300px;
+            }
+            * {
+                background-color: #f92056;
+            }
+        }
+    </style>
+
+    <div>
+        <ul class="message-box"></ul>
+
+        <form class="form">
+            <div class="name"></div>
+            <input type="text" class="input" placeholder="Сообщение">
+            <button class="send-btn">Отправить</button>
+            <button class="change-btn">Сменить имя</button>
+            <button class="clear-btn">Очистить чат</button>
+            <span class="online">0</span>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        const socket = io.connect()
+        const messageBox = document.querySelector('.message-box')
+        const form = document.querySelector('.form')
+        const input = document.querySelector('.input')
+        const nameBlock = document.querySelector('.name')
+        const clearBtn = document.querySelector('.clear-btn')
+        const online = document.querySelector('.online')
+
+        let isAdmin
+        let userName
+
+        if (localStorage.getItem('nickname')) {
+            const info = localStorage.getItem('nickname').split('/')
+            nameBlock.innerHTML = `${info[0]}`
+            userName = info[0]
+
+            if (info[1] === 'true') {
+                clearBtn.style.display = 'flex'
+                isAdmin = true
+            } else {
+                clearBtn.style.display = 'none'
+                isAdmin = false
+            }
+        } else {
+            reg()
+        }
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault()
+
+            if (event.submitter.classList[0] === 'change-btn') {
+                reg()
+            }
+
+            if (event.submitter.classList[0] === 'clear-btn') {
+                messageBox.innerHTML = ''
+            }
+
+            if (input.value) {
+                socket.emit('new message', {
+                    name: userName,
+                    message: input.value,
+                    isAdmin: isAdmin,
+                })
+                input.value = ''
+            }
+        })
+
+        socket.on('new message', (data) => {
+            const newMessage = document.createElement('li')
+
+            if (data.isAdmin) {
+                newMessage.innerHTML = `<span class="admin">${data.name}</span>: ${data.message} <span class="time">${getTime()}</span>`
+            } else {
+                newMessage.innerHTML = `<span class="person">${data.name}</span>: ${data.message} <span class="time">${getTime()}</span>`
+            }
+
+            console.log('sas')
+            
+            messageBox.appendChild(newMessage)
+        })
+
+        async function reg() {
+            userName = prompt('Введите ваше имя:')
+
+            const admin = await axios.get('http://localhost:3000/adminList', {
+                params: {
+                    nickname: userName,
+                }
+            })
+
+            if (admin.data) {
+                console.log('2')
+
+                const password = prompt('Введите пароль')
+
+                if (password === admin.data.split('/')[1]) {
+                    nameBlock.innerHTML = `${userName}`
+                    isAdmin = true
+                    clearBtn.style.display = 'flex'
+                } else {
+                    reg()
+                }
+            } else {
+                nameBlock.innerHTML = `${userName}`
+                isAdmin = false
+                clearBtn.style.display = 'none'
+            }
+            
+            localStorage.setItem('nickname', `${userName}/${isAdmin}`)
+        }
+
+        async function checkOnline() {
+            const newOnline = await axios.get('http://localhost:3000/online')
+
+            online.innerHTML = newOnline.data
+        }
+
+        function getTime() {
+            const date = new Date()
+
+            let hour = date.getHours()
+
+            if (hour <= 9) {
+                hour = '0' + hour
+            }
+
+            let minute = date.getMinutes()
+
+            if (minute <= 9) {
+                minute = '0' + minute
+            }
+
+            let second = date.getSeconds()
+
+            if (second <= 9) {
+                second = '0' + second
+            }
+
+            const result = `${hour}:${minute}:${second}`
+
+            return result
+        }
+
+        checkOnline()
+
+        setInterval(checkOnline, 10000)
+    </script>
+  </body>
+</html>
